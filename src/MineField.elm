@@ -33,7 +33,7 @@ type Msg
 type alias State =
     { width : Int
     , height : Int
-    , mines : Array (Array Bool)
+    , mines : Array Bool
     , mineCount : Int
     }
 
@@ -51,23 +51,24 @@ newGame : Int -> Int -> Int -> State
 newGame width height mineCount =
     State width height (initEmptyMines width height) mineCount
 
-initEmptyMines : Int -> Int -> Array (Array Bool)
+initEmptyMines : Int -> Int -> Array Bool
 initEmptyMines width height =
-    False
-        |> Array.repeat height
-        |> Array.repeat width
+    Array.repeat (height * width) False
 
 
 view : State -> Html Msg
 view model =
     div []
         [ button [ onClick (NewGame 9 9 9) ] [ text "Nuovo Gioco" ]
-        , div [ class "map" ] (toList (Array.map viewRow model.mines))
+        , viewMap model
         ]
 
+viewMap : State -> Html Msg
+viewMap state =
+    div [ class "map" ] (List.map (viewRow state) (List.range 0 ((Array.length state.mines) // state.width)))
 
-viewRow : Array Bool -> Html Msg
-viewRow row =
+viewRow : State -> Int -> Html Msg
+viewRow state r =
     div [ class "row" ] (toList (Array.map viewCell row))
 
 
@@ -100,30 +101,24 @@ placeMine point model =
     if model.mineCount == 0 then
         ( model, Cmd.none )
 
-    else if isMine point model.mines then
+    else if isMine point model then
         ( model, Random.generate PlaceMine (mineGenerator model.width model.height) )
     else
         ( { model
             | mineCount = model.mineCount - 1
-            , mines = setMine point model.mines
+            , mines = setMine point model
           }
         , Random.generate PlaceMine (mineGenerator model.width model.height)
         )
 
-isMine : Cell -> Array (Array Bool) -> Bool
-isMine cell mines =
-    (((mines
-        |> get cell.x)
-        |> withDefault (fromList []))
-        |> get cell.y)
+isMine : Cell -> State -> Bool
+isMine cell state =
+    get (cell.x + (cell.y * state.width)) state.mines
         |> withDefault False
 
-setMine : Cell -> Array (Array Bool) -> Array (Array Bool)
-setMine cell mines =
-    set cell.x ((mines
-        |> get cell.x
-        |> withDefault (fromList []))
-        |> setMineInCol cell.y) mines
+setMine : Cell -> State -> Array Bool
+setMine cell state =
+    set (cell.x + (cell.y * state.width)) True state.mines
 
 
 setMineInCol : Int -> Array Bool -> Array Bool
