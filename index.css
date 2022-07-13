@@ -1,0 +1,14 @@
+.cell {
+  display: inline-block;
+  background-color: red;
+  width: 20px;
+  height: 20px;
+}
+
+.cell:hover {
+  background-color: blue;
+}
+
+.mine {
+  background-color: black;
+}
