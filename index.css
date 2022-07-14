@@ -1,14 +1,63 @@
+.map {
+  cursor: crosshair;
+}
+
 .cell {
   display: inline-block;
-  background-color: red;
+  background-color: lightgray;
   width: 20px;
   height: 20px;
+  text-align: center;
+  vertical-align: bottom;
+  border-style: outset;
+  border-width: 3px;
+  font-family: monospace;
+  font-weight: bold;
+  font-size: 12pt;
+}
+
+.nearby-1 {
+  color: blue;
+}
+
+.nearby-2 {
+  color: green;
+}
+
+.nearby-3 {
+  color: red;
+}
+
+.nearby-4 {
+  color: darkblue;
+}
+
+.nearby-5 {
+  color: darkred;
+}
+
+.nearby-6 {
+  color: darkcyan;
+}
+
+.nearby-7 {
+  color: dimgray;
+}
+
+.nearby-8 {
+  color: gray;
 }
 
 .cell:hover {
-  background-color: blue;
+  background-color: #dcdbdb;
 }
 
-.mine {
-  background-color: black;
+.cell:active {
+  border-style: inset;
+}
+
+.mine, .revealed {
+  border: 1px gray solid;
+  width: 24px;
+  height: 24px;
 }
