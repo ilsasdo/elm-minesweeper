@@ -2,7 +2,7 @@ module MineTest exposing (suite)
 
 import Expect exposing (Expectation)
 import Mine exposing (Mine, emptyMine)
-import MineField exposing (initEmptyMineField, initEmptyRow)
+import Minesweeper exposing (initEmptyMineField, initEmptyRow)
 import Test exposing (..)
 
 
