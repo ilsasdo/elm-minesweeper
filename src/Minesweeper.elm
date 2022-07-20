@@ -1,11 +1,12 @@
 module Minesweeper exposing (..)
 
-import Array exposing (Array, fromList, get, set, toList)
+import Array exposing (Array, toList)
 import Browser
 import Html exposing (Attribute, Html, button, div, p, text)
 import Html.Attributes exposing (class)
-import Html.Events exposing (custom, onClick)
+import Html.Events exposing (custom, onClick, onDoubleClick)
 import Json.Decode as Decode
+import Matrix exposing (Matrix)
 import Maybe exposing (withDefault)
 import Random exposing (Generator)
 import Random.Extra as Random
@@ -29,6 +30,7 @@ type Msg
     | ResetGame
     | UpdateGameState
     | PlaceMines Cell (Set.Set ( Int, Int ))
+    | ExpandCell Cell
 
 
 type GameState
@@ -41,9 +43,8 @@ type GameState
 type alias GameModel =
     { width : Int
     , height : Int
-    , mines : Array Cell
+    , mines : Matrix Cell
     , mineCount : Int
-    , totalMineCount : Int
     , flagCount : Int
     , gameState : GameState
     }
@@ -52,17 +53,11 @@ type alias GameModel =
 type alias Cell =
     { x : Int
     , y : Int
-    , index : Int
     , nearby : Int
     , mine : Bool
     , hidden : Bool
     , flag : Bool
     }
-
-
-onRightClick : Msg -> Attribute Msg
-onRightClick message =
-    custom "contextmenu" (Decode.succeed { message = message, stopPropagation = True, preventDefault = True })
 
 
 init : () -> ( GameModel, Cmd Msg )
@@ -77,118 +72,114 @@ initModel width height mineCount =
 
 newGame : Int -> Int -> Int -> GameModel
 newGame width height mineCount =
-    GameModel width height (initEmptyMines width height) mineCount mineCount 0 NotStarted
+    GameModel width height (initEmptyMines width height) mineCount 0 NotStarted
 
 
-initEmptyMines : Int -> Int -> Array Cell
+initEmptyMines : Int -> Int -> Matrix Cell
 initEmptyMines width height =
-    List.range 0 ((width * height) - 1)
-        |> List.map (initCell width height)
-        |> fromList
+    Matrix.initialize width height initCell
 
 
 emptyCell =
-    initCell 1 1 0
+    initCell ( 0, 0 )
 
 
-initCell : Int -> Int -> Int -> Cell
-initCell width height index =
-    Cell (modBy width index) (index // height) index 0 False True False
-
-
-view : GameModel -> Html Msg
-view model =
-    div []
-        [ button [ onClick ResetGame ] [ text "New Game" ]
-        , p [] [ text ("Flags: " ++ String.fromInt model.flagCount) ]
-        , viewGameStatus model.gameState
-        , viewMap model
-        ]
-
-
-viewGameStatus : GameState -> Html Msg
-viewGameStatus status =
-    case status of
-        NotStarted ->
-            p [] [ text "Click To Start" ]
-
-        Defeat ->
-            p [] [ text "You Lost" ]
-
-        Victory ->
-            p [] [ text "You WON!" ]
-
-        OnGoing ->
-            p [] [ text "Playing..." ]
-
-
-viewMap : GameModel -> Html Msg
-viewMap state =
-    div [ class "map" ] (List.map (viewRow state) (List.range 0 (state.height - 1)))
-
-
-viewRow : GameModel -> Int -> Html Msg
-viewRow state y =
-    state.mines
-        |> Array.slice (y * state.width) ((y + 1) * state.width)
-        |> Array.map viewCell
-        |> toList
-        |> div [ class "row" ]
-
-
-viewCell : Cell -> Html Msg
-viewCell cell =
-    if cell.flag then
-        div
-            [ class "cell hidden"
-            , onRightClick (RemoveFlag cell)
-            ]
-            [ text "🚩" ]
-
-    else if cell.hidden then
-        div
-            [ class "cell hidden"
-            , onClick (RevealCell cell)
-            , onRightClick (PutFlag cell)
-            ]
-            [ text " " ]
-
-    else if cell.mine then
-        div [ class "cell mine" ] [ text "💣" ]
-
-    else if cell.nearby == 0 then
-        div [ class "cell revealed" ] [ text "" ]
-
-    else
-        div [ class ("cell revealed nearby-" ++ String.fromInt cell.nearby) ]
-            [ text (String.fromInt cell.nearby) ]
+initCell : ( Int, Int ) -> Cell
+initCell ( x, y ) =
+    Cell x y 0 False True False
 
 
 update : Msg -> GameModel -> ( GameModel, Cmd Msg )
 update msg model =
-    case msg of
+    case Debug.log "msg: " msg of
         ResetGame ->
-            initModel 9 9 9
+            initModel 9 9 10
 
         PutFlag cell ->
-            putFlag cell model
+            let
+                cmd =
+                    if model.gameState == NotStarted then
+                        Random.generate (PlaceMines cell) (randomPairGenerator cell model.width model.height model.mineCount)
+
+                    else
+                        Cmd.none
+            in
+            { model
+                | gameState = OnGoing
+                , flagCount = model.flagCount + 1
+                , mines = Matrix.map (putFlag cell) model.mines
+            }
+                |> update UpdateGameState
 
         RemoveFlag cell ->
-            removeFlag cell model
+            ( removeFlag cell model, triggerUpdateGameState )
 
         RevealCell cell ->
             if model.gameState == NotStarted then
                 ( { model | gameState = OnGoing }
-                  , Random.generate (PlaceMines cell) (randomPairGenerator cell model.width model.height model.totalMineCount))
+                , Random.generate (PlaceMines cell) (randomPairGenerator cell model.width model.height model.mineCount)
+                )
 
             else
-                revealFirstCell cell model
+                { model | mines = revealFirstCell cell model.mines }
+                    |> update UpdateGameState
 
         PlaceMines cell mines ->
-            ({model | mines = revealCell cell.x cell.y model.width (placeMines mines model)}, Cmd.none)
+            ( { model | mines = revealCell cell.x cell.y (placeMines mines model) }, Cmd.none )
 
         UpdateGameState ->
             updateGameState model
+
+        ExpandCell cell ->
+            { model | mines = expandCell cell model.mines }
+                |> update UpdateGameState
+
+
+triggerUpdateGameState =
+    Cmd.map (always UpdateGameState) Cmd.none
+
+
+expandCell : Cell -> Matrix Cell -> Matrix Cell
+expandCell cell minefield =
+    let
+        nearbyMines =
+            countNearbyFlags cell minefield
+    in
+    if cell.nearby == nearbyMines then
+        minefield
+            |> revealCell (cell.x - 1) (cell.y - 1)
+            |> revealCell (cell.x - 1) (cell.y + 0)
+            |> revealCell (cell.x - 1) (cell.y + 1)
+            |> revealCell (cell.x + 0) (cell.y - 1)
+            |> revealCell (cell.x + 0) (cell.y + 1)
+            |> revealCell (cell.x + 1) (cell.y - 1)
+            |> revealCell (cell.x + 1) (cell.y + 0)
+            |> revealCell (cell.x + 1) (cell.y + 1)
+
+    else
+        minefield
+
+
+countNearbyFlags : Cell -> Matrix Cell -> Int
+countNearbyFlags cell minefield =
+    minefield
+        |> Matrix.toList
+        |> List.filter (\c -> c.flag)
+        |> List.map (\c -> ( c.x, c.y ))
+        |> Set.fromList
+        |> Set.intersect
+            (Set.fromList
+                [ ( cell.x - 1, cell.y - 1 )
+                , ( cell.x - 1, cell.y + 0 )
+                , ( cell.x - 1, cell.y + 1 )
+                , ( cell.x + 0, cell.y - 1 )
+                , ( cell.x + 0, cell.y + 1 )
+                , ( cell.x + 1, cell.y - 1 )
+                , ( cell.x + 1, cell.y + 0 )
+                , ( cell.x + 1, cell.y + 1 )
+                ]
+            )
+        |> Set.size
 
 
 updateGameState : GameModel -> ( GameModel, Cmd Msg )
@@ -217,19 +208,37 @@ determineGameState model =
         OnGoing
 
 
-isVictory: GameModel -> Bool
+isVictory : GameModel -> Bool
 isVictory model =
     let
-        hiddenCellCount = Array.foldr (\cell -> \result -> if cell.hidden then result + 1 else result) 0 model.mines
+        hiddenCellCount =
+            countHiddenCell model.mines
     in
-        hiddenCellCount == model.flagCount && model.flagCount == model.totalMineCount
+    hiddenCellCount == model.flagCount && model.flagCount == model.mineCount
 
 
-isMineRevealed : Array Cell -> Bool
+countHiddenCell : Matrix Cell -> Int
+countHiddenCell cells =
+    cells
+        |> Matrix.toList
+        |> List.foldr
+            (\cell ->
+                \result ->
+                    if cell.hidden then
+                        result + 1
+
+                    else
+                        result
+            )
+            0
+
+
+isMineRevealed : Matrix Cell -> Bool
 isMineRevealed mines =
     mines
-        |> Array.filter (\cell -> cell.mine && not cell.hidden)
-        |> Array.length
+        |> Matrix.toList
+        |> List.filter (\cell -> cell.mine && not cell.hidden)
+        |> List.length
         |> greaterThan 0
 
 
@@ -238,22 +247,33 @@ greaterThan a b =
     a < b
 
 
-putFlag : Cell -> GameModel -> ( GameModel, Cmd Msg )
-putFlag cell state =
-    update UpdateGameState
-        { state
-            | mines = set cell.index { cell | flag = True } state.mines
-            , flagCount = state.flagCount + 1
-        }
+putFlag : Cell -> Cell -> Cell
+putFlag selectedCell cell =
+    if selectedCell.x == cell.x && selectedCell.y == cell.y then
+        { cell | flag = True }
+
+    else
+        cell
 
 
-removeFlag : Cell -> GameModel -> ( GameModel, Cmd Msg )
+removeFlag : Cell -> GameModel -> GameModel
 removeFlag cell state =
-    update UpdateGameState
-        { state
-            | mines = set cell.index { cell | flag = False } state.mines
-            , flagCount = state.flagCount - 1
-        }
+    { state
+        | mines = matrixSet cell.x cell.y { cell | flag = False } state.mines
+        , flagCount = state.flagCount - 1
+    }
+
+
+matrixSet x y value matrix =
+    Matrix.map
+        (\cell ->
+            if cell.x == x && cell.y == y then
+                value
+
+            else
+                cell
+        )
+        matrix
 
 
 gameOver : GameModel -> ( GameModel, Cmd Msg )
@@ -266,60 +286,59 @@ gameOver state =
     )
 
 
+revealAllCells : Matrix Cell -> Matrix Cell
 revealAllCells mines =
-    Array.map (\cell -> { cell | hidden = False }) mines
+    Matrix.map (\cell -> { cell | hidden = False }) mines
 
 
-revealFirstCell : Cell -> GameModel -> ( GameModel, Cmd Msg )
-revealFirstCell cell state =
+revealFirstCell : Cell -> Matrix Cell -> Matrix Cell
+revealFirstCell cell minefield =
     if cell.mine then
-        update UpdateGameState { state | mines = set cell.index { cell | hidden = False } state.mines }
+        matrixSet cell.x cell.y { cell | hidden = False } minefield
 
     else
-        update UpdateGameState { state | mines = revealCell cell.x cell.y state.width state.mines }
+        revealCell cell.x cell.y minefield
 
 
-revealCell : Int -> Int -> Int -> Array Cell -> Array Cell
-revealCell x y width mines =
+revealCell : Int -> Int -> Matrix Cell -> Matrix Cell
+revealCell x y minefield =
     let
         c =
-            mines
-                |> get (x + (y * width))
+            Matrix.get x y minefield
                 |> withDefault { emptyCell | hidden = False }
     in
-    if x < 0 || y < 0 || x >= width then
-        mines
+    if x < 1 || y < 1 || x > Matrix.width minefield || y > Matrix.height minefield then
+        minefield
 
     else if not c.hidden || c.flag then
-        mines
+        minefield
 
-    else if c.nearby > 0 then
-        mines
-            |> set c.index { c | hidden = False }
+    else if c.nearby > 0 || c.mine then
+        matrixSet c.x c.y { c | hidden = False } minefield
 
     else
-        mines
-            |> set c.index { c | hidden = False }
-            |> revealCell (c.x - 1) (c.y - 1) width
-            |> revealCell (c.x - 1) (c.y + 0) width
-            |> revealCell (c.x - 1) (c.y + 1) width
-            |> revealCell (c.x + 0) (c.y - 1) width
-            |> revealCell (c.x + 0) (c.y + 1) width
-            |> revealCell (c.x + 1) (c.y - 1) width
-            |> revealCell (c.x + 1) (c.y + 0) width
-            |> revealCell (c.x + 1) (c.y + 1) width
+        minefield
+            |> matrixSet c.x c.y { c | hidden = False }
+            |> revealCell (c.x - 1) (c.y - 1)
+            |> revealCell (c.x - 1) (c.y + 0)
+            |> revealCell (c.x - 1) (c.y + 1)
+            |> revealCell (c.x + 0) (c.y - 1)
+            |> revealCell (c.x + 0) (c.y + 1)
+            |> revealCell (c.x + 1) (c.y - 1)
+            |> revealCell (c.x + 1) (c.y + 0)
+            |> revealCell (c.x + 1) (c.y + 1)
 
 
-placeMines : Set.Set ( Int, Int ) -> GameModel -> Array Cell
+placeMines : Set.Set ( Int, Int ) -> GameModel -> Matrix Cell
 placeMines mines model =
     mineSetToArray mines model
 
 
-mineSetToArray : Set.Set ( Int, Int ) -> GameModel -> Array Cell
+mineSetToArray : Set.Set ( Int, Int ) -> GameModel -> Matrix Cell
 mineSetToArray minesToPlace model =
     model.mines
-        |> Array.map (setMines minesToPlace)
-        |> Array.map (\cell -> { cell | nearby = countNearbyMines cell minesToPlace })
+        |> Matrix.map (setMines minesToPlace)
+        |> Matrix.map (\cell -> { cell | nearby = countNearbyMines cell minesToPlace })
 
 
 countNearbyMines : Cell -> Set.Set ( Int, Int ) -> Int
@@ -345,6 +364,94 @@ setMines minesToPlace cell =
 
 randomPairGenerator : Cell -> Int -> Int -> Int -> Generator (Set.Set ( Int, Int ))
 randomPairGenerator reserverdCell width height nMines =
-    Random.pair (Random.int 0 (width - 1)) (Random.int 0 (height - 1))
+    Random.pair (Random.int 1 width) (Random.int 1 height)
         |> Random.filter (\pair -> reserverdCell.x /= Tuple.first pair && reserverdCell.y /= Tuple.second pair)
         |> Random.set nMines
+
+
+-- VIEWS --
+
+
+view : GameModel -> Html Msg
+view model =
+    div []
+        [ button [ onClick ResetGame ] [ text "New Game" ]
+        , p [] [ text ("Flags: " ++ String.fromInt (model.mineCount - model.flagCount)) ]
+        , viewGameStatus model.gameState
+        , viewMap model
+        ]
+
+
+viewGameStatus : GameState -> Html Msg
+viewGameStatus status =
+    case status of
+        NotStarted ->
+            p [] [ text "Click To Start" ]
+
+        Defeat ->
+            p [] [ text "You Lost" ]
+
+        Victory ->
+            p [] [ text "You WON!" ]
+
+        OnGoing ->
+            p [] [ text "Playing..." ]
+
+
+viewMap : GameModel -> Html Msg
+viewMap model =
+    div [ class "map" ] (List.map (viewRow model) (List.range 1 model.height))
+
+
+viewRow : GameModel -> Int -> Html Msg
+viewRow state y =
+    state.mines
+        |> Matrix.toList
+        |> Array.fromList
+        |> Array.slice ((y - 1) * state.width) (y * state.width)
+        |> Array.map (viewCell state.gameState)
+        |> toList
+        |> div [ class "row" ]
+
+
+viewCell : GameState -> Cell -> Html Msg
+viewCell gameState cell =
+    if cell.mine && not cell.hidden then
+        div [ class "cell mine" ] [ text "💣" ]
+
+    else if gameState == Defeat && cell.flag && not cell.mine then
+        div [ class "cell mine" ]
+            [ div [ class "wrong-flag" ]
+                [ text "❌" ]
+            , text "🚩"
+            ]
+
+    else if cell.flag then
+        div
+            [ class "cell"
+            , onRightClick (RemoveFlag cell)
+            ]
+            [ text "🚩" ]
+
+    else if cell.hidden then
+        div
+            [ class "cell hidden"
+            , onClick (RevealCell cell)
+            , onRightClick (PutFlag cell)
+            ]
+            [ text " " ]
+
+    else if cell.nearby == 0 then
+        div [ class "cell revealed" ] [ text "" ]
+
+    else
+        div
+            [ class ("cell revealed nearby-" ++ String.fromInt cell.nearby)
+            , onDoubleClick (ExpandCell cell)
+            ]
+            [ text (String.fromInt cell.nearby) ]
+
+
+onRightClick : Msg -> Attribute Msg
+onRightClick message =
+    custom "contextmenu" (Decode.succeed { message = message, stopPropagation = True, preventDefault = True })

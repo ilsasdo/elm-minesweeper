@@ -14,6 +14,12 @@
   font-family: monospace;
   font-weight: bold;
   font-size: 12pt;
+
+  user-select: none; /* standard syntax */
+  -webkit-user-select: none; /* webkit (safari, chrome) browsers */
+  -moz-user-select: none; /* mozilla browsers */
+  -khtml-user-select: none; /* webkit (konqueror) browsers */
+  -ms-user-select: none; /* IE10+ */
 }
 
 .nearby-1 {
@@ -52,7 +58,7 @@
   background-color: #dcdbdb;
 }
 
-.cell:active {
+.cell.hidden:active {
   border-style: inset;
 }
 
@@ -60,4 +66,9 @@
   border: 1px gray solid;
   width: 24px;
   height: 24px;
+}
+
+.mine .wrong-flag {
+  display: inline-block;
+  position: absolute;
 }
