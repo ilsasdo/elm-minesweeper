@@ -72,3 +72,49 @@
   display: inline-block;
   position: absolute;
 }
+
+.container {
+  display: inline-block;
+  border-style: ridge;
+  border-width: 5px;
+}
+
+.header {
+  border-bottom: ridge 5px;
+  background-color: lightgray;
+}
+
+.header > div {
+  width: 33%;
+  display: inline-block;
+}
+
+.header-flags, .header-time {
+  border-style: inset;
+  border-width: 3px;
+  background-color: black;
+  color: red;
+  font-family: monospace;
+  font-size: 18pt;
+  text-align: right;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+.header-newgame {
+  display: inline-block;
+}
+
+.header-newgame button {
+  display: inline;
+  border: outset;
+  font-size: 18pt;
+}
+
+.header-newgame button:active {
+  border: inset;
+}
+
+.header-middle {
+  text-align: center;
+}
