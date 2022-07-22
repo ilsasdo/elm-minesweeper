@@ -32,7 +32,8 @@ jobs:
           npm install uglify-js -g
           gunzip elm.gz
           chmod +x elm
-          mv elm /home/runner/.local/bin
+          mkdir -p ~/.local/bin
+          mv elm ~/.local/bin
           elm make src/Minesweeper.elm --optimize --output=app.js
           uglifyjs app.js --compress "pure_funcs=[F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9],pure_getters,keep_fargs=false,unsafe_comps,unsafe" -o app.min.js
           uglifyjs --mangle --output build.js app.min.js
