@@ -101,15 +101,17 @@ emptyCell =
 
 
 initCell : ( Int, Int ) -> Cell
-initCell ( x, y ) =
+initCell ( y, x ) =
     Cell x y 0 False True False
 
 
 update : Msg -> GameModel -> ( GameModel, Cmd Msg )
 update msg model =
     -- if game is over, disable any event except ResetGame
-    if (model.gameState == Victory || model.gameState == Defeat) &&
-       (msg /= ResetGame Easy && msg /= ResetGame Medium && msg /= ResetGame Advanced) then
+    if
+        (model.gameState == Victory || model.gameState == Defeat)
+            && (msg /= ResetGame Easy && msg /= ResetGame Medium && msg /= ResetGame Advanced)
+    then
         ( model, Cmd.none )
 
     else
@@ -190,9 +192,10 @@ generateMines reservedCell model =
 
 randomPairGenerator : Cell -> Int -> Int -> Int -> Generator (Set.Set ( Int, Int ))
 randomPairGenerator reserverdCell width height nMines =
-    Random.pair (Random.int 1 height) (Random.int 1 width)
+    Random.pair (Random.int 1 width) (Random.int 1 height)
         |> Random.filter (\pair -> reserverdCell.x /= Tuple.first pair && reserverdCell.y /= Tuple.second pair)
         |> Random.set nMines
+
 
 
 -- CELL REVEALING --
@@ -254,10 +257,13 @@ revealCell : Int -> Int -> Matrix Cell -> Matrix Cell
 revealCell x y minefield =
     let
         c =
-            Matrix.get x y minefield
+            Matrix.get y x minefield
                 |> withDefault { emptyCell | hidden = False }
     in
-    if not c.hidden || c.flag then
+    if x < 1 || y < 1 || x > Matrix.width minefield || y > Matrix.height minefield then
+        minefield
+
+    else if not c.hidden || c.flag then
         minefield
 
     else if c.nearby > 0 || c.mine then
