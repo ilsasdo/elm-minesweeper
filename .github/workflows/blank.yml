@@ -32,3 +32,5 @@ jobs:
           gunzip elm.gz
           chmod +x elm
           echo $PATH
+          pwd
+          ls -l
