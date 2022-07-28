@@ -193,7 +193,7 @@ generateMines reservedCell model =
 randomPairGenerator : Cell -> Int -> Int -> Int -> Generator (Set.Set ( Int, Int ))
 randomPairGenerator reserverdCell width height nMines =
     Random.pair (Random.int 1 width) (Random.int 1 height)
-        |> Random.filter (\pair -> reserverdCell.x /= Tuple.first pair && reserverdCell.y /= Tuple.second pair)
+        |> Random.filter (\(x, y) -> not (x == reserverdCell.x && y == reserverdCell.y) )
         |> Random.set nMines
 
 
