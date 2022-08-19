@@ -28,11 +28,11 @@ type Msg
     = ResetGame GameDifficulty
     | RevealCell Cell
     | ExpandCell Cell
-    | PutFlag Cell
-    | RemoveFlag Cell
+    | RightClick Cell
     | PlaceMines Cell (Set.Set ( Int, Int ))
     | UpdateGameState
     | Tick Time.Posix
+    | Ignore
 
 
 type GameState
@@ -65,6 +65,7 @@ type alias Cell =
     , mine : Bool
     , hidden : Bool
     , flag : Bool
+    , questionMark : Bool
     }
 
 
@@ -102,7 +103,7 @@ emptyCell =
 
 initCell : ( Int, Int ) -> Cell
 initCell ( y, x ) =
-    Cell x y 0 False True False
+    Cell x y 0 False True False False
 
 
 update : Msg -> GameModel -> ( GameModel, Cmd Msg )
@@ -116,6 +117,9 @@ update msg model =
 
     else
         case msg of
+            Ignore ->
+                (model, Cmd.none)
+
             ResetGame size ->
                 initGame size
 
@@ -126,16 +130,13 @@ update msg model =
                 else
                     ( model, Cmd.none )
 
-            PutFlag cell ->
+            RightClick cell ->
                 if model.gameState == NotStarted then
                     ( putFlag cell model, generateMines cell model )
 
                 else
                     putFlag cell model
                         |> update UpdateGameState
-
-            RemoveFlag cell ->
-                ( removeFlag cell model, triggerUpdateGameState )
 
             RevealCell cell ->
                 if model.gameState == NotStarted then
@@ -193,7 +194,7 @@ generateMines reservedCell model =
 randomPairGenerator : Cell -> Int -> Int -> Int -> Generator (Set.Set ( Int, Int ))
 randomPairGenerator reserverdCell width height nMines =
     Random.pair (Random.int 1 width) (Random.int 1 height)
-        |> Random.filter (\(x, y) -> not (x == reserverdCell.x && y == reserverdCell.y) )
+        |> Random.filter (\( x, y ) -> not (x == reserverdCell.x && y == reserverdCell.y))
         |> Random.set nMines
 
 
@@ -290,7 +291,6 @@ putFlag : Cell -> GameModel -> GameModel
 putFlag cell model =
     { model
         | gameState = OnGoing
-        , flagCount = model.flagCount + 1
         , minefield = Matrix.map (putFlagOnCell cell) model.minefield
     }
 
@@ -298,26 +298,20 @@ putFlag cell model =
 putFlagOnCell : Cell -> Cell -> Cell
 putFlagOnCell selectedCell cell =
     if selectedCell.x == cell.x && selectedCell.y == cell.y then
-        { cell | flag = True }
+        if cell.questionMark then
+            { cell | flag = False, questionMark = False }
+
+        else if cell.flag then
+            { cell | flag = False, questionMark = True }
+
+        else
+            { cell | flag = True }
 
     else
         cell
 
 
-removeFlag : Cell -> GameModel -> GameModel
-removeFlag cell state =
-    { state
-        | minefield = matrixSet cell.x cell.y { cell | flag = False } state.minefield
-        , flagCount = state.flagCount - 1
-    }
-
-
-
 -- GAME STATE UPDATE --
-
-
-triggerUpdateGameState =
-    Cmd.map (always UpdateGameState) Cmd.none
 
 
 updateGameState : GameModel -> ( GameModel, Cmd Msg )
@@ -331,7 +325,11 @@ updateGameState model =
             gameOver model
 
         _ ->
-            ( { model | gameState = gameState }, Cmd.none )
+            ({ model | gameState = gameState
+                     , flagCount = model.minefield
+                                   |> Matrix.toList
+                                   |> List.filter (\c -> c.flag)
+                                   |> List.length }, Cmd.none)
 
 
 determineGameState : GameModel -> GameState
@@ -422,7 +420,7 @@ parseDifficulty message =
 
 view : GameModel -> Html Msg
 view model =
-    div []
+    div [ onRightClickDisabled ]
         [ div [ class "choose" ]
             [ Html.select [ onInput parseDifficulty ]
                 [ Html.option [] [ text "Easy" ]
@@ -492,15 +490,22 @@ viewCell gameState cell =
     else if cell.flag then
         div
             [ class "cell"
-            , onRightClick (RemoveFlag cell)
+            , onRightClick (RightClick cell)
             ]
             [ text "🚩" ]
+
+    else if cell.questionMark then
+        div
+            [ class "cell"
+            , onRightClick (RightClick cell)
+            ]
+            [ text "?" ]
 
     else if cell.hidden then
         div
             [ class "cell hidden"
             , onClick (RevealCell cell)
-            , onRightClick (PutFlag cell)
+            , onRightClick (RightClick cell)
             ]
             [ text " " ]
 
@@ -518,6 +523,10 @@ viewCell gameState cell =
 onRightClick : Msg -> Attribute Msg
 onRightClick message =
     custom "contextmenu" (Decode.succeed { message = message, stopPropagation = True, preventDefault = True })
+
+onRightClickDisabled : Attribute Msg
+onRightClickDisabled =
+    custom "contextmenu" (Decode.succeed { message = Ignore, stopPropagation = True, preventDefault = True })
 
 
 
