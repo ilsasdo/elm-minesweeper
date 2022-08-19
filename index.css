@@ -4,16 +4,18 @@
 
 .cell {
   display: inline-block;
-  background-color: lightgray;
   width: 20px;
   height: 20px;
   text-align: center;
   vertical-align: bottom;
+  background-color: lightgray;
+  border-color: #eeeeee;
   border-style: outset;
   border-width: 3px;
   font-family: monospace;
   font-weight: bold;
   font-size: 12pt;
+  
 
   user-select: none; /* standard syntax */
   -webkit-user-select: none; /* webkit (safari, chrome) browsers */
@@ -76,11 +78,13 @@
 .container {
   display: inline-block;
   border-style: ridge;
+  border-color: #eeeeee;
   border-width: 5px;
 }
 
 .header {
   border-bottom: ridge 5px;
+  border-color: #eeeeee;
   background-color: lightgray;
 }
 
@@ -107,7 +111,8 @@
 
 .header-newgame button {
   display: inline;
-  border: outset;
+  border-style: outset;
+  border-color: #eeeeee;
   font-size: 18pt;
 }
 
