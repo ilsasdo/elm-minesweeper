@@ -11,3 +11,21 @@ jobs:
           node-version: '14'
       - run: npm install -g elm
       - run: elm make src/Minesweeper.elm --output build.js
+      
+  copy-file:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Pushes test file
+      uses: dmnemec/copy_file_to_another_repo_action@main
+      env:
+        API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
+      with:
+        source_file: 'build.js'
+        destination_repo: 'ilsasdo/ilsasdo.github.io'
+        destination_folder: 'projects/minesweeper'
+        user_email: 'ilsasdo@gmail.com'
+        user_name: 'ilsasdo'
+        commit_message: 'Update of Minesweeper'
