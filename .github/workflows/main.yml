@@ -11,11 +11,8 @@ jobs:
           node-version: '14'
       - run: npm install -g elm
       - run: elm make src/Minesweeper.elm --output build.js
-      
-      - name: Checkout
-        uses: actions/checkout@v2
 
-      - name: Pushes test file
+      - name: Pushes build.js to github pages
         uses: dmnemec/copy_file_to_another_repo_action@main
         env:
           API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
