@@ -10,8 +10,16 @@ jobs:
         with:
           node-version: '14'
       - run: npm install -g elm
-      - run: elm make src/Minesweeper.elm --output build.js
-      - run: git clone git@github.com:ilsasdo/ilsasdo.github.io.git
-      - run: yes | cp index.css index.html build.js ilsasdo.github.io/projects/minesweeper
-      - run: cd ilsasdo.github.io
-      - run: git commit -m "minesweeper auto deploy" ; git push origin master
+      - run: elm make src/Minesweeper.elm --output dist/build.js
+      - name: Pushes to public repository
+        id: push_directory
+        uses: cpina/github-action-push-to-another-repository@ssh-deploy-key
+        env:
+          SSH_DEPLOY_KEY: ${{ secrets.WORKFLOW_DEPLOY_KEY }}
+        with:
+          source-directory: dist/
+          destination-github-username: 'ilsasdo'
+          destination-repository-name: 'ilsasdo.github.io'
+          user-email: ilsasdo@gmail.com
+          commit-message: pushed from $GITHUB_REF
+          target-branch: master
