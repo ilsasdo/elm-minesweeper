@@ -11,15 +11,7 @@ jobs:
           node-version: '14'
       - run: npm install -g elm
       - run: elm make src/Minesweeper.elm --output build.js
-
-      - name: Pushes build.js to github pages
-        uses: dmnemec/copy_file_to_another_repo_action@main
-        env:
-          API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
-        with:
-          source_file: 'build.js'
-          destination_repo: 'ilsasdo/ilsasdo.github.io'
-          destination_folder: 'projects/minesweeper'
-          user_email: 'ilsasdo@gmail.com'
-          user_name: 'ilsasdo'
-          commit_message: 'Update of Minesweeper'
+      - run: git clone git@github.com:ilsasdo/ilsasdo.github.io.git
+      - run: yes | cp index.css index.html build.js ilsasdo.github.io/projects/minesweeper
+      - run: cd ilsasdo.github.io
+      - run: git commit -m "minesweeper auto deploy" ; git push origin master
