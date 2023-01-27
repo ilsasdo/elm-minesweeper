@@ -22,4 +22,4 @@ jobs:
           destination-repository-name: 'ilsasdo.github.io'
           user-email: ilsasdo@gmail.com
           commit-message: pushed from $GITHUB_REF
-          target-branch: master
+          target-branch: main
