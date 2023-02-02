@@ -2,4 +2,4 @@
 
 Minesweeper implementation in ELM as an exploration project.
 
-[Try it out here.](https://ilsasdo.github.io/assets/minesweeper/)
+[Try it out here.](https://ilsasdo.github.io/projects/minesweeper)
