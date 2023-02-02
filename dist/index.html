@@ -1,17 +1,35 @@
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Main</title>
-  <script src="build.js"></script>
-  <link rel="stylesheet" href="index.css">
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Quicksand:wght@300&display=swap"
+          rel="stylesheet">
+
+    <link rel="stylesheet" href="index.css">
+    <script src="build.js"></script>
+    <title>Minesweeper</title>
 </head>
 
 <body>
-<div id="myapp"></div>
+        <h1>Minesweeper</h1>
+        <div class="minesweper">
+            <div id="minesweper"></div>
+        </div>
+        <h2>How to play</h2>
+        <p><em>Click</em> on 🙂 to start a new game</p>
+        <p><em>Left-Click</em> on an empty cell to uncover it</p>
+        <p><em>Right-Click</em> on an empty cell to put a 🚩</p>
+        <p><em>Right-Click</em> on a 🚩to put a ? </p>
+        <p><em>Double-Click</em> on a discovered cell to discover all the safe nearbies.</p>
 <script>
-  var app = Elm.Minesweeper.init({
-    node: document.getElementById('myapp')
-  });
+    Elm.Minesweeper.init({
+        node: document.getElementById('minesweper')
+    });
 </script>
 </body>
 </html>
