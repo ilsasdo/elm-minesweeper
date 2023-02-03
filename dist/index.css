@@ -1,6 +1,14 @@
+* {
+  font-family: 'Noto Serif', serif;
+}
+
 h1, h2 {
   font-family: 'Courgette', cursive;
   text-align: center;
+}
+
+em {
+  font-family: 'Courgette', cursive;
 }
 
 .minesweper {
