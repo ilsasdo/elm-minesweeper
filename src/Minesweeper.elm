@@ -2,9 +2,9 @@ module Minesweeper exposing (..)
 
 import Array exposing (Array, toList)
 import Browser
-import Html exposing (Attribute, Html, button, div, option, p, text)
+import Html exposing (Attribute, Html, button, div, text)
 import Html.Attributes exposing (class)
-import Html.Events exposing (custom, on, onClick, onDoubleClick, onInput)
+import Html.Events exposing (custom, onClick, onDoubleClick, onInput)
 import Json.Decode as Decode
 import Matrix exposing (Matrix)
 import Maybe exposing (withDefault)
@@ -30,7 +30,6 @@ type Msg
     | ExpandCell Cell
     | RightClick Cell
     | PlaceMines Cell (Set.Set ( Int, Int ))
-    | UpdateGameState
     | Tick Time.Posix
     | Ignore
 
@@ -118,7 +117,7 @@ update msg model =
     else
         case msg of
             Ignore ->
-                (model, Cmd.none)
+                ( model, Cmd.none )
 
             ResetGame size ->
                 initGame size
@@ -135,8 +134,9 @@ update msg model =
                     ( putFlag cell model, generateMines cell model )
 
                 else
-                    putFlag cell model
-                        |> update UpdateGameState
+                    model
+                        |> putFlag cell
+                        |> updateGameState
 
             RevealCell cell ->
                 if model.gameState == NotStarted then
@@ -144,17 +144,14 @@ update msg model =
 
                 else
                     { model | minefield = revealFirstCell cell model.minefield }
-                        |> update UpdateGameState
+                        |> updateGameState
 
             PlaceMines cell mines ->
                 ( { model | minefield = revealCell cell.x cell.y (placeMines mines model) }, Cmd.none )
 
-            UpdateGameState ->
-                updateGameState model
-
             ExpandCell cell ->
                 { model | minefield = expandCell cell model.minefield }
-                    |> update UpdateGameState
+                    |> updateGameState
 
 
 
@@ -293,6 +290,17 @@ putFlag cell model =
         | gameState = OnGoing
         , minefield = Matrix.map (putFlagOnCell cell) model.minefield
     }
+        |> updateFlagCount
+
+
+updateFlagCount model =
+    { model
+        | flagCount =
+            model.minefield
+                |> Matrix.toList
+                |> List.filter .flag
+                |> List.length
+    }
 
 
 putFlagOnCell : Cell -> Cell -> Cell
@@ -311,6 +319,7 @@ putFlagOnCell selectedCell cell =
         cell
 
 
+
 -- GAME STATE UPDATE --
 
 
@@ -325,11 +334,7 @@ updateGameState model =
             gameOver model
 
         _ ->
-            ({ model | gameState = gameState
-                     , flagCount = model.minefield
-                                   |> Matrix.toList
-                                   |> List.filter (\c -> c.flag)
-                                   |> List.length }, Cmd.none)
+            ( { model | gameState = gameState }, Cmd.none )
 
 
 determineGameState : GameModel -> GameState
@@ -523,6 +528,7 @@ viewCell gameState cell =
 onRightClick : Msg -> Attribute Msg
 onRightClick message =
     custom "contextmenu" (Decode.succeed { message = message, stopPropagation = True, preventDefault = True })
+
 
 onRightClickDisabled : Attribute Msg
 onRightClickDisabled =
