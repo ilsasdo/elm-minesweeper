@@ -4,14 +4,16 @@ import Array exposing (Array, toList)
 import Browser
 import Html exposing (Attribute, Html, button, div, text)
 import Html.Attributes exposing (class)
-import Html.Events exposing (custom, onClick, onDoubleClick, onInput)
+import Html.Events exposing (custom, onClick, onDoubleClick, onInput, onMouseDown, onMouseUp)
 import Json.Decode as Decode
 import Matrix exposing (Matrix)
 import Maybe exposing (withDefault)
+import Process
 import Random exposing (Generator)
 import Random.Extra as Random
 import Random.Set as Random
 import Set
+import Task
 import Time
 
 
@@ -27,6 +29,9 @@ subscriptions model =
 type Msg
     = ResetGame GameDifficulty
     | RevealCell Cell
+    | MouseDown Cell
+    | MouseUp Cell
+    | MaybeLongPress
     | ExpandCell Cell
     | RightClick Cell
     | PlaceMines Cell (Set.Set ( Int, Int ))
@@ -54,6 +59,7 @@ type alias GameModel =
     , gameState : GameState
     , elapsedTime : Int
     , gameType : GameDifficulty
+    , longPress : Maybe Cell
     }
 
 
@@ -88,7 +94,7 @@ initGame difficulty =
 
 newGame : Int -> Int -> Int -> GameDifficulty -> GameModel
 newGame width height mineCount difficulty =
-    GameModel (initEmptyMines width height) mineCount 0 NotStarted 0 difficulty
+    GameModel (initEmptyMines width height) mineCount 0 NotStarted 0 difficulty Nothing
 
 
 initEmptyMines : Int -> Int -> Matrix Cell
@@ -128,6 +134,20 @@ update msg model =
 
                 else
                     ( model, Cmd.none )
+
+            MaybeLongPress ->
+                case model.longPress of
+                    Nothing ->
+                        ( model, Cmd.none )
+
+                    Just cell ->
+                        update (RightClick cell) model
+
+            MouseDown cell ->
+                ( { model | longPress = Just cell }, Task.perform (always MaybeLongPress) (Process.sleep 1000) )
+
+            MouseUp cell ->
+                ( { model | longPress = Nothing }, Cmd.none )
 
             RightClick cell ->
                 if model.gameState == NotStarted then
@@ -496,6 +516,8 @@ viewCell gameState cell =
         div
             [ class "cell"
             , onRightClick (RightClick cell)
+            , onMouseDown (MouseDown cell)
+            , onMouseUp (MouseUp cell)
             ]
             [ text "🚩" ]
 
@@ -503,6 +525,8 @@ viewCell gameState cell =
         div
             [ class "cell"
             , onRightClick (RightClick cell)
+            , onMouseDown (MouseDown cell)
+            , onMouseUp (MouseUp cell)
             ]
             [ text "?" ]
 
@@ -511,6 +535,8 @@ viewCell gameState cell =
             [ class "cell hidden"
             , onClick (RevealCell cell)
             , onRightClick (RightClick cell)
+            , onMouseDown (MouseDown cell)
+            , onMouseUp (MouseUp cell)
             ]
             [ text " " ]
 
